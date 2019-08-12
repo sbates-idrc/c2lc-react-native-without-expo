@@ -1,114 +1,166 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow
- */
+// @flow
 
-import React, {Fragment} from 'react';
-import {
-  SafeAreaView,
-  StyleSheet,
-  ScrollView,
-  View,
-  Text,
-  StatusBar,
-} from 'react-native';
+import React from 'react';
+import EditorsSelect from './EditorsSelect';
+import * as FeatureDetection from './FeatureDetection';
+import Interpreter from './Interpreter';
+import ProgramTextEditor from './ProgramTextEditor';
+import TextSyntax from './TextSyntax';
+import TurtleGraphics from './TurtleGraphics';
+import {View, Button, Text, Switch} from 'react-native';
 
-import {
-  Header,
-  LearnMoreLinks,
-  Colors,
-  DebugInstructions,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-const App = () => {
-  return (
-    <Fragment>
-      <StatusBar barStyle="dark-content" />
-      <SafeAreaView>
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          style={styles.scrollView}>
-          <Header />
-          {global.HermesInternal == null ? null : (
-            <View style={styles.engine}>
-              <Text style={styles.footer}>Engine: Hermes</Text>
-            </View>
-          )}
-          <View style={styles.body}>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Step One</Text>
-              <Text style={styles.sectionDescription}>
-                Edit <Text style={styles.highlight}>App.js</Text> to change this
-                screen and then come back to see your edits.
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>See Your Changes</Text>
-              <Text style={styles.sectionDescription}>
-                <ReloadInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Debug</Text>
-              <Text style={styles.sectionDescription}>
-                <DebugInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Learn More</Text>
-              <Text style={styles.sectionDescription}>
-                Read the docs to discover what to do next:
-              </Text>
-            </View>
-            <LearnMoreLinks />
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </Fragment>
-  );
+type AppState = {
+    program: Array<string>,
+    programVer: number,
+    numEditors: number
 };
 
-const styles = StyleSheet.create({
-  scrollView: {
-    backgroundColor: Colors.lighter,
-  },
-  engine: {
-    position: 'absolute',
-    right: 0,
-  },
-  body: {
-    backgroundColor: Colors.white,
-  },
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.black,
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-    color: Colors.dark,
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-  footer: {
-    color: Colors.dark,
-    fontSize: 12,
-    fontWeight: '600',
-    padding: 4,
-    paddingRight: 12,
-    textAlign: 'right',
-  },
-});
+type AppContext = {
+    bluetoothApiIsAvailable: boolean
+};
 
-export default App;
+export default class App extends React.Component<{}, AppState> {
+    appContext: AppContext;
+    interpreter: Interpreter;
+    syntax: TextSyntax;
+    turtleGraphicsRef: { current: null | TurtleGraphics };
+
+    constructor(props: {}) {
+        super(props);
+
+        this.state = {
+            program: ["forward", "left"],
+            programVer: 1,
+            numEditors: 1,
+            liveMode: false
+        };
+
+        this.appContext = {
+            bluetoothApiIsAvailable: FeatureDetection.bluetoothApiIsAvailable()
+        };
+
+        this.interpreter = new Interpreter(
+            {
+                forward: () => {
+                    if (this.turtleGraphicsRef.current !== null) {
+                        this.turtleGraphicsRef.current.forward(40);
+                    }
+                },
+                left: () => {
+                    if (this.turtleGraphicsRef.current !== null) {
+                        this.turtleGraphicsRef.current.turnLeft(90);
+                    }
+                },
+                right: () => {
+                    if (this.turtleGraphicsRef.current !== null) {
+                        this.turtleGraphicsRef.current.turnRight(90);
+                    }
+                }
+            }
+        );
+
+        this.syntax = new TextSyntax();
+
+        this.turtleGraphicsRef = React.createRef<TurtleGraphics>();
+
+        this.handleProgramChange = this.handleProgramChange.bind(this);
+        this.handleNumEditorsChange = this.handleNumEditorsChange.bind(this);
+        this.handleClickRun = this.handleClickRun.bind(this);
+        this.handleClickHome = this.handleClickHome.bind(this);
+        this.handleClickClear = this.handleClickClear.bind(this);
+        this.showLiveFeedback = this.showLiveFeedback.bind(this);
+        this.changeMode = this.changeMode.bind(this);
+    }
+
+    handleProgramChange: (Array<string>) => void;
+    handleProgramChange(program: Array<string>) {
+        this.setState((state) => {
+            return {
+                program: program,
+                programVer: state.programVer + 1
+            }
+        });
+    }
+
+    handleNumEditorsChange: (number) => void;
+    handleNumEditorsChange(numEditors: number) {
+        console.log(numEditors);
+        this.setState({
+            numEditors: numEditors
+        });
+    }
+
+    handleClickRun: () => void;
+    handleClickRun() {
+        this.interpreter.run(this.state.program);
+    }
+
+    handleClickHome: () => void;
+    handleClickHome() {
+        if (this.turtleGraphicsRef.current !== null) {
+            this.turtleGraphicsRef.current.home();
+        }
+    }
+
+    handleClickClear: () => void;
+    handleClickClear() {
+        if (this.turtleGraphicsRef.current !== null) {
+            this.turtleGraphicsRef.current.clear();
+        }
+    }
+
+    showLiveFeedback: () => void;
+    showLiveFeedback() {
+        this.interpreter.run(this.state.program);
+        //this.handleProgramChange();
+    }
+
+    changeMode: () => void;
+    changeMode() {
+        this.setState({liveMode : !this.state.liveMode});
+    }
+
+    render() {
+        return (
+            <View>
+                <Switch
+                    onValueChange = {this.changeMode}
+                    value = {this.state.liveMode}/>
+                {[...Array(this.state.numEditors)].map((x, i) => {
+                    return <ProgramTextEditor
+                        liveMode= {this.state.liveMode}
+                        program={ this.state.program }
+                        programVer={ this.state.programVer }
+                        syntax={ this.syntax }
+                        onChange={ this.showLiveFeedback }
+                        key={ i } />
+                })}
+                <EditorsSelect
+                    numEditors={ this.state.numEditors }
+                    onChange={ this.handleNumEditorsChange } />
+                <View className='c2lc-graphics'>
+                    <TurtleGraphics ref={this.turtleGraphicsRef} />
+                </View>
+                <Button 
+                    onPress={this.handleClickRun}
+                    title="Run"
+                />
+                <Button 
+                    onPress={this.handleClickHome}
+                    title="Home"
+                />
+                <Button 
+                    onPress={this.handleClickClear}
+                    title="Clear"
+                />
+                <View>
+                    {this.appContext.bluetoothApiIsAvailable ? (
+                        <Text>Bluetooth available</Text>
+                    ) : (
+                        <Text>Bluetooth not available</Text>
+                    )}
+                </View>
+            </View>
+        );
+    }
+}
